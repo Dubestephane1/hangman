@@ -7,20 +7,30 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        /* Animations */
         @keyframes bounce {
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-10px); }
         }
-        .bounce {
-            animation: bounce 1s infinite;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
+        @keyframes fall {
+            0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+        .bounce { animation: bounce 1s infinite; }
+        .fade-in { animation: fadeIn 0.3s ease forwards; }
+        
+        /* Hangman parts */
         .hangman-part {
             opacity: 0;
             transition: opacity 0.3s ease;
         }
-        .hangman-part.show {
-            opacity: 1;
-        }
+        .hangman-part.show { opacity: 1; }
+        
+        /* Letter boxes */
         .letter-box {
             transition: all 0.3s ease;
         }
@@ -28,19 +38,24 @@
             transform: scale(1.2);
             color: #4CAF50;
         }
+        
+        /* Keyboard keys */
         .keyboard-key {
             transition: all 0.2s ease;
         }
-        .keyboard-key:hover {
-            transform: scale(1.1);
-        }
-        .keyboard-key:active {
-            transform: scale(0.9);
-        }
+        .keyboard-key:hover { transform: scale(1.1); }
+        .keyboard-key:active { transform: scale(0.9); }
         .keyboard-key.used {
             opacity: 0.5;
             transform: scale(0.9);
+            cursor: not-allowed;
         }
+        .keyboard-key:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* Background */
         .hangman-bg::before {
             content: "";
             position: absolute;
@@ -53,6 +68,29 @@
         .hangman-bg > * {
             position: relative;
             z-index: 1;
+        }
+        
+        /* Confetti */
+        .confetti {
+            position: fixed;
+            top: -10px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            z-index: 100;
+        }
+        
+        /* Hint toast */
+        .hint-toast {
+            position: fixed;
+            background: #FEF3C7;
+            color: #92400E;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            font-weight: 600;
+            z-index: 100;
+            transition: all 0.5s ease;
         }
     </style>
 </head>
@@ -204,108 +242,174 @@
     </div>
 
     <script>
-        // Game data
+        // ============================================
+        // CONSTANTS
+        // ============================================
+        const MAX_WRONG_GUESSES = 6;
+        const CONFETTI_COUNT = 30;
+        const CONFETTI_DURATION_MIN = 1000;
+        const CONFETTI_DURATION_MAX = 3000;
+        const HINT_TOAST_DURATION = 1000;
+        const GAME_START_DELAY = 500;
+        
+        const CONFETTI_COLORS = [
+            '#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3',
+            '#03a9f4', '#00bcd4', '#009688', '#4CAF50', '#8BC34A', '#CDDC39',
+            '#FFEB3B', '#FFC107', '#FF9800', '#FF5722'
+        ];
+        
+        const VOWELS = ['A', 'E', 'I', 'O', 'U'];
+        const CONSONANTS = [
+            'B', 'C', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M',
+            'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'X', 'Y', 'Z'
+        ];
+        
+        // Game data - words organized by category
         const wordCategories = {
             animals: [
                 "CAT", "DOG", "COW", "PIG", "BAT", "ANT", "BEE", "OWL", "FOX", "CHICKEN",
                 "LION", "TIGER", "HORSE", "MOUSE", "SHEEP", "GOAT", "BEAR", "WOLF", "FROG", "DUCK",
                 "RABBIT", "SNAKE", "FISH", "LIZARD", "PANDA", "ZEBRA", "KANGAROO", "PIGEON", "PENGUIN", "TURTLE"
-                ],
+            ],
             colors: [
-                "RED", "BLUE", "YELLOW", // primary
-                "GREEN", "ORANGE", "PURPLE", // secondary
+                "RED", "BLUE", "YELLOW",
+                "GREEN", "ORANGE", "PURPLE",
                 "WHITE", "BLACK", "GREY"
-                ],
+            ],
             numbers: [
                 "ONE", "TWO", "TEN", "SIX", "FIVE", "FOUR", "NINE", "ZERO", "EIGHT", "THREE", "SEVEN",
                 "ELEVEN", "TWELVE", "THIRTEEN", "FOURTEEN", "FIFTEEN", "SIXTEEN", "SEVENTEEN", "EIGHTEEN", "NINETEEN", "TWENTY"
-                ],
+            ],
             fruits: [
                 "APPLE", "PEAR", "KIWI", "MANGO", "GRAPE", "LEMON", "BANANA", "ORANGE", "PEACH", "MELON",
                 "PLUM", "CHERRY", "PINEAPPLE", "PAPAYA", "GUAVA", "APRICOT", "FIG", "COCONUT", "LYCHEE", "WATERMELON"
             ],
-            shapes: ["CIRCLE", "SQUARE", "STAR", "HEART", "OVAL", "ELLIPSE", "PENTAGON", "HEXAGON", "OCTAGON", "TRIANGLE", "DIAMOND", "CROSS", "ARC", "LINE", "RECTANGLE"],
+            shapes: [
+                "CIRCLE", "SQUARE", "STAR", "HEART", "OVAL", "ELLIPSE", "PENTAGON", "HEXAGON", "OCTAGON", "TRIANGLE", "DIAMOND", "CROSS", "ARC", "LINE", "RECTANGLE"
+            ],
             countries: [
                 "CANADA", "BRAZIL", "FRANCE", "JAPAN", "INDIA", "EGYPT", "SPAIN", "CHINA", "ITALY", "KENYA",
                 "GERMANY", "AUSTRALIA", "MEXICO", "ARGENTINA", "RUSSIA", "TURKEY", "THAILAND", "NIGERIA", "NORWAY", "GREECE"
-                ],
+            ],
             sports: [
-                "SOCCER", "BASKETBALL", "BASEBALL", "TENNIS", "GOLF", "CRICKET", "RUGBY", "HOCKEY", "SWIMMING", "CYCLING", 
-                "BOXING", "SKIING", "SKATEBOARDING", "SURFING", "VOLLEYBALL", "BADMINTON", "WRESTLING", "FENCING", "ROWING", "HANDBALL",
-                ],
+                "SOCCER", "BASKETBALL", "BASEBALL", "TENNIS", "GOLF", "CRICKET", "RUGBY", "HOCKEY", "SWIMMING", "CYCLING",
+                "BOXING", "SKIING", "SKATEBOARDING", "SURFING", "VOLLEYBALL", "BADMINTON", "WRESTLING", "FENCING", "ROWING", "HANDBALL"
+            ],
             body: [
                 "HEAD", "EYES", "EARS", "NOSE", "MOUTH", "LIPS", "TOOTH", "TEETH",
                 "TONGUE", "NECK", "SHOULDER", "ARMS", "ELBOW", "HANDS", "FINGERS", "THUMB", "CHEST",
                 "BACK", "STOMACH", "HIP", "LEGS", "KNEE", "FOOT", "FEET", "TOES"
-                ],
+            ]
         };
 
-        // Game state
-        let currentWord = "";
-        let guessedLetters = [];
-        let wrongGuesses = 0;
-        let maxWrongGuesses = 6;
-        let gameActive = false;
-        let currentCategory = "";
+        // ============================================
+        // GAME STATE
+        // ============================================
+        const gameState = {
+            currentWord: "",
+            guessedLetters: [],
+            wrongGuesses: 0,
+            gameActive: false,
+            currentCategory: "",
+            hintUsed: false
+        };
 
-        // DOM elements
-        const wordDisplay = document.getElementById('word-display');
-        const categoryDisplay = document.getElementById('category-display');
-        const keyboard = document.getElementById('keyboard');
-        const gameStatus = document.getElementById('game-status');
-        const newGameBtn = document.getElementById('new-game-btn');
-        const hintBtn = document.getElementById('hint-btn');
-        const categoryButtons = document.querySelectorAll('.category-btn');
-        const hangmanParts = document.querySelectorAll('.hangman-part');
-        const winFace = document.getElementById('win-face');
-        const loseFace = document.getElementById('lose-face');
+        // ============================================
+        // DOM ELEMENTS (cached for performance)
+        // ============================================
+        const elements = {
+            wordDisplay: document.getElementById('word-display'),
+            categoryDisplay: document.getElementById('category-display'),
+            keyboard: document.getElementById('keyboard'),
+            gameStatus: document.getElementById('game-status'),
+            newGameBtn: document.getElementById('new-game-btn'),
+            hintBtn: document.getElementById('hint-btn'),
+            winFace: document.getElementById('win-face'),
+            loseFace: document.getElementById('lose-face'),
+            subtitle: document.getElementById('subtitle')
+        };
+        
+        // Hangman parts in reveal order
+        const HANGMAN_PART_ORDER = ['head', 'body', 'left-arm', 'right-arm', 'left-leg', 'right-leg'];
+        const hangmanParts = HANGMAN_PART_ORDER.map(id => document.getElementById(id));
 
-        // Initialize keyboard
+        // ============================================
+        // INITIALIZATION
+        // ============================================
+        
+        /**
+         * Creates the virtual keyboard with vowels and consonants
+         */
         function createKeyboard() {
-            keyboard.innerHTML = '';
-            // Vowels row
-            const vowels = ['A', 'E', 'I', 'O', 'U'];
-            const consonants = [
-                'B', 'C', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M',
-                'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'X', 'Y', 'Z'
-            ];
+            elements.keyboard.innerHTML = '';
+            
             // Create vowels row
-            const vowelsRow = document.createElement('div');
-            vowelsRow.className = 'flex flex-row flex-wrap justify-center gap-2 mb-2';
-            vowels.forEach(letter => {
-                const key = document.createElement('button');
-                key.textContent = letter;
-                key.className = 'keyboard-key px-4 py-2 bg-white hover:bg-purple-100 text-purple-600 font-bold rounded-lg shadow-md';
-                key.dataset.letter = letter;
-                key.addEventListener('click', () => handleGuess(letter));
-                vowelsRow.appendChild(key);
-            });
-            keyboard.appendChild(vowelsRow);
+            const vowelsRow = createKeyboardRow(VOWELS, 'mb-2');
+            elements.keyboard.appendChild(vowelsRow);
+            
             // Create consonants row
-            const consonantsRow = document.createElement('div');
-            consonantsRow.className = 'flex flex-row flex-wrap justify-center gap-2 mb-2';
-            consonants.forEach(letter => {
-                const key = document.createElement('button');
-                key.textContent = letter;
-                key.className = 'keyboard-key px-4 py-2 bg-white hover:bg-purple-100 text-purple-600 font-bold rounded-lg shadow-md';
-                key.dataset.letter = letter;
-                key.addEventListener('click', () => handleGuess(letter));
-                consonantsRow.appendChild(key);
+            const consonantsRow = createKeyboardRow(CONSONANTS, '');
+            elements.keyboard.appendChild(consonantsRow);
+        }
+        
+        /**
+         * Creates a row of keyboard keys
+         * @param {string[]} letters - Array of letters to create keys for
+         * @param {string} extraClasses - Additional CSS classes
+         * @returns {HTMLElement} - Container div with keys
+         */
+        function createKeyboardRow(letters, extraClasses) {
+            const row = document.createElement('div');
+            row.className = `flex flex-row flex-wrap justify-center gap-2 ${extraClasses}`;
+            
+            letters.forEach(letter => {
+                const key = createKeyboardKey(letter);
+                row.appendChild(key);
             });
-            keyboard.appendChild(consonantsRow);
+            
+            return row;
+        }
+        
+        /**
+         * Creates a single keyboard key button
+         * @param {string} letter - The letter for this key
+         * @returns {HTMLElement} - Button element
+         */
+        function createKeyboardKey(letter) {
+            const key = document.createElement('button');
+            key.textContent = letter;
+            key.className = 'keyboard-key px-4 py-2 bg-white hover:bg-purple-100 text-purple-600 font-bold rounded-lg shadow-md';
+            key.dataset.letter = letter;
+            key.disabled = false;
+            key.addEventListener('click', () => handleGuess(letter));
+            return key;
         }
 
-        // Start a new game
+        // ============================================
+        // GAME LOGIC
+        // ============================================
+        
+        /**
+         * Starts a new game with the specified category
+         * @param {string} category - The word category to use
+         */
         function startNewGame(category) {
+            // Validate category
+            if (!wordCategories[category]) {
+                console.error(`Invalid category: ${category}. Defaulting to 'animals'.`);
+                category = 'animals';
+            }
+            
             // Reset game state
-            guessedLetters = [];
-            wrongGuesses = 0;
-            gameActive = true;
-            currentCategory = category;
+            gameState.guessedLetters = [];
+            gameState.wrongGuesses = 0;
+            gameState.gameActive = true;
+            gameState.currentCategory = category;
+            gameState.hintUsed = false;
             
             // Select a random word from the category
             const words = wordCategories[category];
-            currentWord = words[Math.floor(Math.random() * words.length)];
+            gameState.currentWord = words[Math.floor(Math.random() * words.length)];
             
             // Update UI
             updateWordDisplay();
@@ -313,74 +417,108 @@
             resetHangman();
             updateGameStatus();
             
-            // Show category
-            categoryDisplay.textContent = `Category: ${category.charAt(0).toUpperCase() + category.slice(1)}`;
+            // Show category with word count
+            elements.categoryDisplay.textContent = `Category: ${capitalize(category)} (${words.length} words)`;
             
-            // Disable hint button until first wrong guess
-            hintBtn.disabled = false;
+            // Reset hint button
+            elements.hintBtn.disabled = true;
             
             // Show message
-            gameStatus.textContent = "Guess the word!";
-            gameStatus.className = "text-center text-xl font-bold mb-4 text-purple-600";
+            setGameStatus("Guess the word!", "text-purple-600");
         }
 
-        // Update the word display with guessed letters
+        /**
+         * Updates the word display showing guessed and hidden letters
+         */
         function updateWordDisplay() {
-            wordDisplay.innerHTML = '';
+            elements.wordDisplay.innerHTML = '';
             let allLettersFound = true;
             
-            for (let i = 0; i < currentWord.length; i++) {
-                const letter = currentWord[i];
-                const letterBox = document.createElement('div');
+            for (const letter of gameState.currentWord) {
+                const letterBox = createLetterBox(letter, gameState.guessedLetters.includes(letter));
+                elements.wordDisplay.appendChild(letterBox);
                 
-                if (guessedLetters.includes(letter)) {
-                    letterBox.textContent = letter;
-                    letterBox.className = 'letter-box found w-10 h-12 flex items-center justify-center text-3xl font-bold text-purple-600 bg-white rounded-lg shadow-md';
-                } else {
-                    letterBox.className = 'letter-box w-10 h-12 flex items-center justify-center text-3xl font-bold text-transparent bg-gray-200 rounded-lg shadow-md';
-                    letterBox.textContent = '_';
+                if (!gameState.guessedLetters.includes(letter)) {
                     allLettersFound = false;
                 }
-                
-                wordDisplay.appendChild(letterBox);
             }
             
             // Check if player won (only if game is still active)
-            if (allLettersFound && gameActive) {
+            if (allLettersFound && gameState.gameActive) {
                 endGame(true);
             }
         }
-
-        // Update keyboard with used letters
-        function updateKeyboard() {
-            const keys = document.querySelectorAll('.keyboard-key');
-            keys.forEach(key => {
-                const letter = key.dataset.letter;
-                if (guessedLetters.includes(letter)) {
-                    if (currentWord.includes(letter)) {
-                        key.className = 'keyboard-key used px-4 py-2 bg-green-100 text-green-600 font-bold rounded-lg shadow-md';
-                    } else {
-                        key.className = 'keyboard-key used px-4 py-2 bg-red-100 text-red-600 font-bold rounded-lg shadow-md';
-                    }
-                } else {
-                    key.className = 'keyboard-key px-4 py-2 bg-white hover:bg-purple-100 text-purple-600 font-bold rounded-lg shadow-md';
-                }
-            });
+        
+        /**
+         * Creates a letter box element
+         * @param {string} letter - The letter to display
+         * @param {boolean} isGuessed - Whether the letter has been guessed
+         * @returns {HTMLElement} - Div element for the letter
+         */
+        function createLetterBox(letter, isGuessed) {
+            const letterBox = document.createElement('div');
+            
+            if (isGuessed) {
+                letterBox.textContent = letter;
+                letterBox.className = 'letter-box found w-10 h-12 flex items-center justify-center text-3xl font-bold text-purple-600 bg-white rounded-lg shadow-md';
+            } else {
+                letterBox.className = 'letter-box w-10 h-12 flex items-center justify-center text-3xl font-bold text-transparent bg-gray-200 rounded-lg shadow-md';
+                letterBox.textContent = '_';
+            }
+            
+            return letterBox;
         }
 
-        // Handle letter guess
+        /**
+         * Updates keyboard key styles based on guess status
+         */
+        function updateKeyboard() {
+            const keys = elements.keyboard.querySelectorAll('.keyboard-key');
+            keys.forEach(key => {
+                const letter = key.dataset.letter;
+                const keyClass = getKeyClass(letter);
+                key.className = keyClass;
+                key.disabled = gameState.guessedLetters.includes(letter);
+            });
+        }
+        
+        /**
+         * Gets the appropriate CSS class for a keyboard key
+         * @param {string} letter - The letter to check
+         * @returns {string} - CSS class string
+         */
+        function getKeyClass(letter) {
+            const baseClass = 'keyboard-key px-4 py-2 font-bold rounded-lg shadow-md';
+            
+            if (!gameState.guessedLetters.includes(letter)) {
+                return `${baseClass} bg-white hover:bg-purple-100 text-purple-600`;
+            }
+            
+            if (gameState.currentWord.includes(letter)) {
+                return `${baseClass} used bg-green-100 text-green-600`;
+            }
+            
+            return `${baseClass} used bg-red-100 text-red-600`;
+        }
+
+        /**
+         * Handles a letter guess from the user
+         * @param {string} letter - The guessed letter
+         */
         function handleGuess(letter) {
-            if (!gameActive || guessedLetters.includes(letter)) return;
+            if (!gameState.gameActive || gameState.guessedLetters.includes(letter)) {
+                return;
+            }
             
-            guessedLetters.push(letter);
+            gameState.guessedLetters.push(letter);
             
-            if (!currentWord.includes(letter)) {
-                wrongGuesses++;
+            if (!gameState.currentWord.includes(letter)) {
+                gameState.wrongGuesses++;
                 updateHangman();
                 
                 // Enable hint after first wrong guess
-                if (wrongGuesses === 1) {
-                    hintBtn.disabled = false;
+                if (gameState.wrongGuesses === 1) {
+                    elements.hintBtn.disabled = false;
                 }
             }
             
@@ -389,164 +527,272 @@
             updateGameStatus();
             
             // Check if player lost
-            if (wrongGuesses >= maxWrongGuesses) {
+            if (gameState.wrongGuesses >= MAX_WRONG_GUESSES) {
                 endGame(false);
             }
         }
 
-        // Update hangman drawing
+        /**
+         * Reveals the next hangman body part based on wrong guesses
+         */
         function updateHangman() {
-            for (let i = 0; i < wrongGuesses; i++) {
-                if (hangmanParts[i]) {
-                    hangmanParts[i].classList.add('show');
-                }
+            const partIndex = gameState.wrongGuesses - 1;
+            if (partIndex >= 0 && partIndex < hangmanParts.length && hangmanParts[partIndex]) {
+                hangmanParts[partIndex].classList.add('show');
             }
         }
 
-        // Reset hangman drawing
+        /**
+         * Resets the hangman drawing to initial state
+         */
         function resetHangman() {
-            hangmanParts.forEach(part => part.classList.remove('show'));
-            winFace.classList.add('hidden');
-            loseFace.classList.add('hidden');
+            hangmanParts.forEach(part => part?.classList.remove('show'));
+            elements.winFace?.classList.add('hidden');
+            elements.loseFace?.classList.add('hidden');
         }
 
-        // Update game status message
+        /**
+         * Updates the game status message
+         */
         function updateGameStatus() {
-            if (!gameActive) return;
-            const remainingGuesses = maxWrongGuesses - wrongGuesses;
+            if (!gameState.gameActive) return;
+            
+            const remainingGuesses = MAX_WRONG_GUESSES - gameState.wrongGuesses;
             if (remainingGuesses > 0) {
-                gameStatus.textContent = `Wrong guesses left: ${remainingGuesses}`;
-                gameStatus.className = "text-center text-xl font-bold mb-4 text-purple-600";
+                setGameStatus(`Wrong guesses left: ${remainingGuesses}`, "text-purple-600");
             }
         }
+        
+        /**
+         * Sets the game status message with styling
+         * @param {string} message - The status message
+         * @param {string} colorClass - Tailwind color class
+         */
+        function setGameStatus(message, colorClass) {
+            elements.gameStatus.textContent = message;
+            elements.gameStatus.className = `text-center text-xl font-bold mb-4 ${colorClass}`;
+        }
 
-        // End the game (win or lose)
+        /**
+         * Ends the game with win or loss state
+         * @param {boolean} win - Whether the player won
+         */
         function endGame(win) {
-            gameActive = false;
+            gameState.gameActive = false;
             
             if (win) {
-                gameStatus.textContent = "You won! Great job!";
-                gameStatus.className = "text-center text-xl font-bold mb-4 text-green-600 bounce";
-                winFace.classList.remove('hidden');
-                
-                // Confetti effect
-                for (let i = 0; i < 30; i++) {
-                    setTimeout(() => {
-                        createConfetti();
-                    }, i * 100);
-                }
+                handleWin();
             } else {
-                gameStatus.textContent = `Game over! The word was: ${currentWord}`;
-                gameStatus.className = "text-center text-xl font-bold mb-4 text-red-600";
-                loseFace.classList.remove('hidden');
-                
-                // Reveal all letters
-                for (let i = 0; i < currentWord.length; i++) {
-                    const letter = currentWord[i];
-                    if (!guessedLetters.includes(letter)) {
-                        guessedLetters.push(letter);
-                    }
+                handleLoss();
+            }
+        }
+        
+        /**
+         * Handles win state - shows celebration
+         */
+        function handleWin() {
+            setGameStatus("You won! Great job!", "text-green-600 bounce");
+            elements.winFace?.classList.remove('hidden');
+            
+            // Confetti particles array to manage animation lifecycle
+        let confettiParticles = [];
+
+        /**
+         * Creates a falling confetti particle
+         */
+        function createConfetti() {
+            // Create a particle object with its required animation properties
+            const particle = {
+                element: document.createElement('div'),
+                color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+                duration: CONFETTI_DURATION_MIN + Math.random() * (CONFETTI_DURATION_MAX - CONFETTI_DURATION_MIN) + 'ms'
+            };
+
+            particle.element.className = 'confetti fade-in';
+            particle.element.style.backgroundColor = particle.color;
+            particle.element.style.left = `${Math.random() * 100}%`;
+            particle.element.style.animation = `${particle.duration} forwards`;
+
+            document.body.appendChild(particle.element);
+            confettiParticles.push(particle);
+
+            // Clean up after animation
+            setTimeout(() => {
+                particle.element.remove();
+                confettiParticles = confettiParticles.filter(p => p !== particle);
+            }, parseInt(particle.duration));
+        } effect
+            for (let i = 0; i < CONFETTI_COUNT; i++) {
+                setTimeout(createConfetti, i * 100);
+            }
+        }
+        
+        /**
+         * Handles loss state - reveals word
+         */
+        function handleLoss() {
+            setGameStatus(`Game over! The word was: ${gameState.currentWord}`, "text-red-600");
+            elements.loseFace?.classList.remove('hidden');
+            
+            // Reveal all letters
+            revealRemainingLetters();
+            updateWordDisplay();
+        }
+        
+        /**
+         * Reveals all unguessed letters in the word
+         */
+        function revealRemainingLetters() {
+            for (const letter of gameState.currentWord) {
+                if (!gameState.guessedLetters.includes(letter)) {
+                    gameState.guessedLetters.push(letter);
                 }
-                updateWordDisplay();
             }
         }
 
-        // Create confetti effect
+        /**
+         * Creates a falling confetti particle
+         */
         function createConfetti() {
-            const colors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4CAF50', '#8BC34A', '#CDDC39', '#FFEB3B', '#FFC107', '#FF9800', '#FF5722'];
             const confetti = document.createElement('div');
-            confetti.className = 'absolute rounded-full w-3 h-3';
-            confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+            confetti.className = 'confetti fade-in';
+            confetti.style.backgroundColor = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
             confetti.style.left = `${Math.random() * 100}%`;
-            confetti.style.top = '-10px';
-            confetti.style.transform = `rotate(${Math.random() * 360}deg)`;
+            confetti.style.animation = `fall ${CONFETTI_DURATION_MIN + Math.random() * (CONFETTI_DURATION_MAX - CONFETTI_DURATION_MIN)}ms cubic-bezier(0.1, 0.8, 0.3, 1) forwards`;
+            
             document.body.appendChild(confetti);
             
-            const animation = confetti.animate([
-                { top: '-10px', opacity: 1 },
-                { top: `${Math.random() * 100}%`, opacity: 0 }
-            ], {
-                duration: 1000 + Math.random() * 2000,
-                easing: 'cubic-bezier(0.1, 0.8, 0.3, 1)'
-            });
-            
-            animation.onfinish = () => confetti.remove();
+            // Clean up after animation
+            setTimeout(() => confetti.remove(), CONFETTI_DURATION_MAX);
         }
 
-        // Provide a hint
+        /**
+         * Provides a hint by revealing a random unguessed letter
+         */
         function giveHint() {
-            if (!gameActive || wrongGuesses === 0) return;
-            
-            // Find letters not yet guessed
-            const unguessedLetters = [];
-            for (let i = 0; i < currentWord.length; i++) {
-                const letter = currentWord[i];
-                if (!guessedLetters.includes(letter) && !unguessedLetters.includes(letter)) {
-                    unguessedLetters.push(letter);
-                }
+            if (!gameState.gameActive || gameState.wrongGuesses === 0 || gameState.hintUsed) {
+                return;
             }
+            
+            const unguessedLetters = getUnguessedLetters();
             
             if (unguessedLetters.length > 0) {
                 const hintLetter = unguessedLetters[Math.floor(Math.random() * unguessedLetters.length)];
-                guessedLetters.push(hintLetter);
+                gameState.guessedLetters.push(hintLetter);
+                gameState.hintUsed = true;
+                
                 updateWordDisplay();
                 updateKeyboard();
+                showHintToast(hintLetter);
                 
-                // Show hint animation
-                const hintElement = document.createElement('div');
-                hintElement.className = 'absolute bg-yellow-100 text-yellow-800 px-3 py-1 rounded-lg shadow-lg';
-                hintElement.textContent = `Hint: ${hintLetter}`;
-                hintElement.style.top = `${hintBtn.offsetTop - 40}px`;
-                hintElement.style.left = `${hintBtn.offsetLeft}px`;
-                document.body.appendChild(hintElement);
-                
-                setTimeout(() => {
-                    hintElement.style.opacity = '0';
-                    hintElement.style.transform = 'translateY(-20px)';
-                    setTimeout(() => hintElement.remove(), 500);
-                }, 1000);
+                // Disable hint button after use
+                elements.hintBtn.disabled = true;
             }
+        }
+        
+        /**
+         * Gets all unique letters in the word that haven't been guessed
+         * @returns {string[]} - Array of unguessed letters
+         */
+        function getUnguessedLetters() {
+            const unguessedLetters = [];
+            for (const letter of gameState.currentWord) {
+                if (!gameState.guessedLetters.includes(letter) && !unguessedLetters.includes(letter)) {
+                    unguessedLetters.push(letter);
+                }
+            }
+            return unguessedLetters;
+        }
+        
+        /**
+         * Shows a toast notification with the hint letter
+         * @param {string} letter - The hinted letter
+         */
+        function showHintToast(letter) {
+            const toast = document.createElement('div');
+            toast.className = 'hint-toast fade-in';
+            toast.textContent = `Hint: ${letter}`;
+            toast.style.top = '50%';
+            toast.style.left = '50%';
+            toast.style.transform = 'translate(-50%, -50%)';
             
-            // Disable hint button after use
-            hintBtn.disabled = true;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translate(-50%, -100%)';
+                setTimeout(() => toast.remove(), 500);
+            }, HINT_TOAST_DURATION);
+        }
+        
+        /**
+         * Capitalizes the first letter of a string
+         * @param {string} str - String to capitalize
+         * @returns {string} - Capitalized string
+         */
+        function capitalize(str) {
+            return str.charAt(0).toUpperCase() + str.slice(1);
         }
 
-        // Event listeners
-        newGameBtn.addEventListener('click', () => {
-            if (currentCategory) {
-                startNewGame(currentCategory);
-            } else {
-                // Default to animals if no category selected yet
-                startNewGame('animals');
-            }
+        // ============================================
+        // EVENT LISTENERS
+        // ============================================
+        
+        elements.newGameBtn.addEventListener('click', () => {
+            const category = gameState.currentCategory || 'animals';
+            startNewGame(category);
         });
-
-        hintBtn.addEventListener('click', giveHint);
-
-        categoryButtons.forEach(button => {
+        
+        elements.hintBtn.addEventListener('click', giveHint);
+        
+        // Category buttons
+        document.querySelectorAll('.category-btn').forEach(button => {
             button.addEventListener('click', () => {
                 startNewGame(button.dataset.category);
             });
         });
 
-        // Initialize
-        createKeyboard();
+        // ============================================
+        // INITIALIZATION
+        // ============================================
         
-        // Update subtitle with total number of words
-        const subtitle = document.getElementById('subtitle');
-        const totalWords = Object.values(wordCategories).reduce((sum, arr) => sum + arr.length, 0);
-        subtitle.textContent = `Learn ${totalWords} English words while having fun!`;
-        // Update category button labels with word counts
-        document.querySelectorAll('.category-label').forEach(label => {
-            const cat = label.getAttribute('data-label');
-            if (wordCategories[cat]) {
-                label.textContent = `${cat.charAt(0).toUpperCase() + cat.slice(1)} (${wordCategories[cat].length})`;
-            }
-        });
-        // Start with animals by default
-        setTimeout(() => {
-            startNewGame('animals');
-        }, 500);
+        /**
+         * Initializes the game UI and starts the first game
+         */
+        function initGame() {
+            createKeyboard();
+            updateSubtitle();
+            updateCategoryLabels();
+            
+            // Start with animals by default
+            setTimeout(() => {
+                startNewGame('animals');
+            }, GAME_START_DELAY);
+        }
+        
+        /**
+         * Updates the subtitle with total word count
+         */
+        function updateSubtitle() {
+            const totalWords = Object.values(wordCategories).reduce((sum, arr) => sum + arr.length, 0);
+            elements.subtitle.textContent = `Learn ${totalWords} English words while having fun!`;
+        }
+        
+        /**
+         * Updates category button labels with word counts
+         */
+        function updateCategoryLabels() {
+            document.querySelectorAll('.category-label').forEach(label => {
+                const category = label.getAttribute('data-label');
+                if (wordCategories[category]) {
+                    const count = wordCategories[category].length;
+                    label.textContent = `${capitalize(category)} (${count})`;
+                }
+            });
+        }
+        
+        // Start the game
+        initGame();
     </script>
 </body>
 </html>
