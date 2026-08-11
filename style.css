@@ -1,0 +1,546 @@
+/* ============================================
+   Bella Hangman - Modern Kids Theme
+   ============================================ */
+
+:root {
+    --purple: #8b5cf6;
+    --purple-dark: #6d28d9;
+    --purple-deep: #4c1d95;
+    --pink: #ec4899;
+    --sky: #0ea5e9;
+    --green: #22c55e;
+    --green-deep: #059669;
+    --red: #ef4444;
+    --yellow: #f59e0b;
+    --ink: #4c1d95;
+    --ink-soft: #7c6ba6;
+    --card: #ffffff;
+    --shadow: 0 12px 32px rgba(124, 58, 237, 0.16);
+}
+
+/* ---------- Base ---------- */
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: 'Nunito', sans-serif;
+    color: var(--ink);
+    background: linear-gradient(160deg, #fdf2f8 0%, #ede9fe 42%, #e0f2fe 100%);
+    overflow-x: hidden;
+}
+
+button { font-family: inherit; }
+button:focus-visible { outline: 3px solid #a78bfa; outline-offset: 2px; }
+
+.hidden { display: none !important; }
+
+/* ---------- Decorative blobs ---------- */
+.blob {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(70px);
+    opacity: 0.55;
+    z-index: 0;
+    pointer-events: none;
+}
+.blob-1 { width: 320px; height: 320px; background: #c4b5fd; top: -90px; left: -90px; }
+.blob-2 { width: 280px; height: 280px; background: #f9a8d4; top: 12%; right: -100px; }
+.blob-3 { width: 300px; height: 300px; background: #a5f3fc; bottom: -110px; left: 18%; }
+.blob-4 { width: 220px; height: 220px; background: #fde68a; bottom: 4%; right: 12%; }
+
+/* ---------- Layout ---------- */
+.container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2.5rem 1.25rem 3rem;
+    position: relative;
+    z-index: 1;
+}
+
+/* ---------- Header ---------- */
+.header { text-align: center; margin-bottom: 2.25rem; }
+
+.title-badge {
+    width: 4.5rem;
+    height: 4.5rem;
+    margin: 0 auto 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: #fff;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f472b6, #8b5cf6);
+    box-shadow: 0 10px 25px rgba(236, 72, 153, 0.4);
+    animation: float 3s ease-in-out infinite;
+}
+
+.title {
+    margin: 0;
+    font-family: 'Baloo 2', sans-serif;
+    font-weight: 800;
+    font-size: clamp(2.6rem, 7vw, 4.2rem);
+    letter-spacing: 0.5px;
+    background: linear-gradient(90deg, var(--purple-dark), var(--pink), var(--sky));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.subtitle {
+    margin: 0.25rem 0 0;
+    color: var(--ink-soft);
+    font-weight: 700;
+    font-size: 1.15rem;
+}
+
+/* ---------- Game layout ---------- */
+.game {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+}
+.controls {
+    flex: 1 1 340px;
+    max-width: 620px;
+    min-width: 0;
+}
+
+/* ---------- Hangman stage ---------- */
+.hangman-panel {
+    flex: 0 0 auto;
+    width: clamp(200px, 26vw, 280px);
+}
+
+.hangman-stage {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 2rem;
+    border: 3px solid #fff;
+    background: linear-gradient(160deg, #ffffff 0%, #f5f3ff 100%);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.hangman-bg::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(#ddd6fe 1.5px, transparent 1.5px);
+    background-size: 18px 18px;
+    opacity: 0.55;
+    z-index: 0;
+}
+.hangman-bg > * { position: relative; z-index: 1; }
+
+/* Gallows */
+.g-pole {
+    position: absolute;
+    left: 30%;
+    top: 0;
+    width: 8px;
+    height: 100%;
+    background: var(--purple-dark);
+    border-radius: 4px;
+}
+.g-beam {
+    position: absolute;
+    left: 30%;
+    top: 8px;
+    width: 46%;
+    height: 8px;
+    background: var(--purple-dark);
+    border-radius: 4px;
+}
+.g-diag {
+    position: absolute;
+    left: 30%;
+    top: 8px;
+    width: 8px;
+    height: 50%;
+    background: var(--purple-dark);
+    border-radius: 4px;
+    transform: rotate(-42deg);
+    transform-origin: top left;
+}
+.g-base {
+    position: absolute;
+    left: 22%;
+    bottom: 0;
+    width: 18%;
+    height: 10px;
+    background: var(--purple-dark);
+    border-radius: 5px;
+}
+
+/* Hangman parts */
+.hangman-part {
+    position: absolute;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.hangman-part.show { opacity: 1; }
+
+.hp-head {
+    top: 15%;
+    left: 76%;
+    width: 58px;
+    height: 58px;
+    margin-left: -29px;
+    border-radius: 50%;
+    border: 5px solid var(--pink);
+    background: #ffe4f1;
+}
+.hp-body {
+    top: calc(15% + 64px);
+    left: 76%;
+    width: 7px;
+    height: 22%;
+    margin-left: -3.5px;
+    background: var(--pink);
+    border-radius: 4px;
+}
+.hp-arm {
+    top: calc(15% + 62px);
+    width: 46px;
+    height: 7px;
+    background: var(--pink);
+    border-radius: 4px;
+}
+.hp-arm-left {
+    left: 76%;
+    margin-left: -3.5px;
+    transform-origin: left center;
+    transform: rotate(18deg);
+}
+.hp-arm-right {
+    left: 76%;
+    margin-left: -46px;
+    transform-origin: right center;
+    transform: rotate(-18deg);
+}
+.hp-leg {
+    top: calc(15% + 64px + 22% + 4px);
+    width: 46px;
+    height: 7px;
+    background: var(--pink);
+    border-radius: 4px;
+}
+.hp-leg-left {
+    left: 76%;
+    margin-left: -3.5px;
+    transform-origin: left center;
+    transform: rotate(38deg);
+}
+.hp-leg-right {
+    left: 76%;
+    margin-left: -46px;
+    transform-origin: right center;
+    transform: rotate(-38deg);
+}
+
+/* Win / lose faces */
+.face {
+    position: absolute;
+    top: 15%;
+    left: 76%;
+    width: 58px;
+    height: 58px;
+    margin-left: -29px;
+    border-radius: 50%;
+}
+.face-win { border: 5px solid var(--green); background: #ecfdf5; }
+.face-lose { border: 5px solid var(--red); background: #fef2f2; }
+.face .eye {
+    position: absolute;
+    top: 16px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+.face .eye-l { left: 13px; }
+.face .eye-r { right: 13px; }
+.face-win .eye { background: var(--green); }
+.face-lose .eye { background: var(--red); }
+.face .mouth { position: absolute; left: 50%; transform: translateX(-50%); }
+.face-win .mouth {
+    bottom: 12px;
+    width: 26px;
+    height: 12px;
+    border-bottom: 4px solid var(--green);
+    border-radius: 0 0 14px 14px;
+}
+.face-lose .mouth {
+    bottom: 16px;
+    width: 26px;
+    height: 10px;
+    border-top: 4px solid var(--red);
+    border-radius: 14px 14px 0 0;
+}
+
+/* ---------- Cards ---------- */
+.card {
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 2px solid #fff;
+    border-radius: 1.5rem;
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0 0 1.1rem;
+    font-family: 'Baloo 2', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--purple-dark);
+}
+
+/* ---------- Category buttons ---------- */
+.categories { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+
+.category-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: 'Baloo 2', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    color: #fff;
+    padding: 0.65rem 1.15rem;
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+    box-shadow: 0 6px 0 rgba(0, 0, 0, 0.16), 0 8px 16px rgba(0, 0, 0, 0.1);
+    transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.category-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 9px 0 rgba(0, 0, 0, 0.16), 0 12px 20px rgba(0, 0, 0, 0.12);
+    filter: brightness(1.06);
+}
+.category-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.16); }
+
+.cat-animals { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
+.cat-colors { background: linear-gradient(135deg, #ef4444, #f87171); }
+.cat-numbers { background: linear-gradient(135deg, #3b82f6, #60a5fa); }
+.cat-fruits { background: linear-gradient(135deg, #22c55e, #4ade80); }
+.cat-shapes { background: linear-gradient(135deg, #a855f7, #c084fc); }
+.cat-sports { background: linear-gradient(135deg, #14b8a6, #2dd4bf); }
+.cat-countries { background: linear-gradient(135deg, #f97316, #fb923c); }
+.cat-body { background: linear-gradient(135deg, #ec4899, #f472b6); }
+
+/* ---------- Word display ---------- */
+.word-display {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.letter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.1rem;
+    height: 3.7rem;
+    font-family: 'Baloo 2', sans-serif;
+    font-weight: 800;
+    font-size: 1.7rem;
+    border-radius: 1rem;
+    transition: all 0.3s ease;
+}
+.letter--hidden {
+    background: #f3e8ff;
+    border: 3px dashed #c4b5fd;
+    color: #a78bfa;
+    font-size: 1.35rem;
+}
+.letter--found {
+    background: linear-gradient(135deg, #bbf7d0, #86efac);
+    border: 3px solid #4ade80;
+    color: #065f46;
+    transform: scale(1.08);
+}
+
+.category-display {
+    text-align: center;
+    color: var(--ink-soft);
+    font-weight: 700;
+    font-size: 1.05rem;
+}
+
+/* ---------- Keyboard ---------- */
+.keyboard { display: flex; flex-direction: column; gap: 0.5rem; }
+.keyboard-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem; }
+
+.key {
+    font-family: 'Baloo 2', sans-serif;
+    font-weight: 800;
+    font-size: 1.15rem;
+    color: var(--purple-deep);
+    background: #fff;
+    border: 3px solid #ddd6fe;
+    border-radius: 0.9rem;
+    width: 3.1rem;
+    height: 3.3rem;
+    cursor: pointer;
+    box-shadow: 0 4px 0 #c4b5fd;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.key:hover { transform: translateY(-3px); box-shadow: 0 7px 0 #c4b5fd; }
+.key:active { transform: translateY(2px); box-shadow: 0 1px 0 #c4b5fd; }
+.key--correct {
+    background: linear-gradient(135deg, #bbf7d0, #86efac);
+    border-color: #4ade80;
+    box-shadow: 0 4px 0 var(--green);
+    color: #14532d;
+}
+.key--wrong {
+    background: linear-gradient(135deg, #fecaca, #fca5a5);
+    border-color: #f87171;
+    box-shadow: 0 4px 0 var(--red);
+    color: #7f1d1d;
+}
+.key:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: 0 4px 0 rgba(196, 181, 253, 0.6);
+}
+
+/* ---------- Status ---------- */
+.game-status {
+    min-height: 2.5rem;
+    text-align: center;
+    font-family: 'Baloo 2', sans-serif;
+    font-weight: 700;
+    font-size: 1.45rem;
+}
+.status--purple { color: var(--purple-dark); }
+.status--win { color: var(--green-deep); }
+.status--lose { color: #dc2626; }
+
+/* ---------- Action buttons ---------- */
+.actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 1rem; }
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-family: 'Baloo 2', sans-serif;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: #fff;
+    padding: 0.85rem 1.75rem;
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.btn:hover:not(:disabled) { transform: translateY(-3px); filter: brightness(1.06); }
+.btn:active:not(:disabled) { transform: translateY(0); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary {
+    background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+    box-shadow: 0 6px 0 var(--purple-deep), 0 10px 20px rgba(124, 58, 237, 0.35);
+}
+.btn-hint {
+    background: linear-gradient(135deg, #0ea5e9, #0284c7);
+    box-shadow: 0 6px 0 #075985, 0 10px 20px rgba(14, 165, 233, 0.35);
+}
+
+/* ---------- Instructions ---------- */
+.instructions {
+    margin: 2.5rem auto 0;
+    max-width: 56rem;
+}
+.steps { display: grid; grid-template-columns: 1fr; gap: 1.25rem; }
+@media (min-width: 768px) { .steps { grid-template-columns: 1fr 1fr; } }
+
+.step { display: flex; align-items: flex-start; gap: 1rem; }
+.step-icon {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 999px;
+    font-size: 1.3rem;
+    color: #fff;
+    box-shadow: 0 5px 0 rgba(0, 0, 0, 0.12);
+}
+.icon-yellow { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
+.icon-blue { background: linear-gradient(135deg, #3b82f6, #60a5fa); }
+.icon-green { background: linear-gradient(135deg, #22c55e, #4ade80); }
+.icon-red { background: linear-gradient(135deg, #ef4444, #f87171); }
+.step h3 {
+    margin: 0 0 0.25rem;
+    font-family: 'Baloo 2', sans-serif;
+    font-size: 1.1rem;
+    color: var(--ink);
+}
+.step p { margin: 0; color: var(--ink-soft); font-weight: 600; }
+
+/* ---------- Animations ---------- */
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fall {
+    0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+}
+.bounce { animation: bounce 1s infinite; }
+.fade-in { animation: fadeIn 0.3s ease forwards; }
+
+/* Confetti */
+.confetti {
+    position: fixed;
+    top: -10px;
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    z-index: 100;
+}
+
+/* Hint toast */
+.hint-toast {
+    position: fixed;
+    background: #fde68a;
+    color: #92400e;
+    padding: 0.9rem 1.75rem;
+    border-radius: 999px;
+    box-shadow: 0 10px 30px rgba(146, 64, 14, 0.35);
+    font-family: 'Baloo 2', sans-serif;
+    font-weight: 700;
+    font-size: 1.2rem;
+    z-index: 100;
+    transition: all 0.5s ease;
+}
+
+/* ---------- Small screens ---------- */
+@media (max-width: 480px) {
+    .letter { width: 2.3rem; height: 2.9rem; font-size: 1.3rem; }
+    .letter--hidden { font-size: 1.05rem; }
+    .key { width: 2.5rem; height: 2.8rem; font-size: 1rem; }
+    .card { padding: 1.1rem; }
+}

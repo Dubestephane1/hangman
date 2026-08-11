@@ -3,796 +3,159 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kids Hangman Game</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Bella Hangman - Kids Word Game</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        /* Animations */
-        @keyframes bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes fall {
-            0% { transform: translateY(-10px) rotate(0deg); opacity: 1; }
-            100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
-        }
-        .bounce { animation: bounce 1s infinite; }
-        .fade-in { animation: fadeIn 0.3s ease forwards; }
-        
-        /* Hangman parts */
-        .hangman-part {
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-        .hangman-part.show { opacity: 1; }
-        
-        /* Letter boxes */
-        .letter-box {
-            transition: all 0.3s ease;
-        }
-        .letter-box.found {
-            transform: scale(1.2);
-            color: #4CAF50;
-        }
-        
-        /* Keyboard keys */
-        .keyboard-key {
-            transition: all 0.2s ease;
-        }
-        .keyboard-key:hover { transform: scale(1.1); }
-        .keyboard-key:active { transform: scale(0.9); }
-        .keyboard-key.used {
-            opacity: 0.5;
-            transform: scale(0.9);
-            cursor: not-allowed;
-        }
-        .keyboard-key:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        
-        /* Background */
-        .hangman-bg::before {
-            content: "";
-            position: absolute;
-            inset: 0;
-            background: url('https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=400&q=80') center center no-repeat;
-            background-size: cover;
-            opacity: 0.6;
-            z-index: 0;
-        }
-        .hangman-bg > * {
-            position: relative;
-            z-index: 1;
-        }
-        
-        /* Confetti */
-        .confetti {
-            position: fixed;
-            top: -10px;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            z-index: 100;
-        }
-        
-        /* Hint toast */
-        .hint-toast {
-            position: fixed;
-            background: #FEF3C7;
-            color: #92400E;
-            padding: 0.75rem 1.5rem;
-            border-radius: 0.5rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            font-weight: 600;
-            z-index: 100;
-            transition: all 0.5s ease;
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
-<body class="bg-gradient-to-b from-blue-100 to-purple-100 min-h-screen font-sans">
-    <div class="container mx-auto px-4 py-8">
+<body>
+    <!-- Decorative background blobs -->
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+    <div class="blob blob-4"></div>
+
+    <main class="container">
         <!-- Header -->
-        <header class="text-center mb-8">
-            <h1 class="text-4xl md:text-5xl font-bold text-purple-600 mb-2">Bella Hangman</h1>
-            <p class="text-lg text-gray-600" id="subtitle">Learn English words while having fun!</p>
+        <header class="header">
+            <div class="title-badge"><i class="fas fa-smile-beam"></i></div>
+            <h1 class="title">Bella Hangman</h1>
+            <p class="subtitle" id="subtitle">Learn English words while having fun!</p>
         </header>
 
         <!-- Game Area -->
-        <div class="flex flex-col lg:flex-row gap-8 items-center justify-center">
+        <section class="game">
             <!-- Hangman Drawing -->
-            <div class="w-full lg:w-1/2 flex justify-center">
-                <div class="relative w-64 h-64 bg-white rounded-lg shadow-lg p-4 flex items-center justify-center overflow-hidden hangman-bg">
+            <div class="hangman-panel">
+                <div class="hangman-stage hangman-bg">
                     <!-- Gallows -->
-                    <div class="absolute top-0 left-1/2 transform -translate-x-1/2 w-1 h-8 bg-gray-800"></div>
-                    <div class="absolute top-0 left-1/2 transform -translate-x-12 w-24 h-1 bg-gray-800"></div>
-                    <div class="absolute top-0 left-1/4 w-1 h-64 bg-gray-800"></div>
-                    
-                    
+                    <div class="g-beam"></div>
+                    <div class="g-pole"></div>
+                    <div class="g-diag"></div>
+                    <div class="g-base"></div>
+
                     <!-- Hangman Parts -->
-                    <div id="head" class="hangman-part absolute top-8 left-1/2 transform -translate-x-1/2 w-12 h-12 rounded-full border-4 border-red-500"></div>
-                    <div id="body" class="hangman-part absolute top-20 left-1/2 transform -translate-x-1/2 w-1 h-14 bg-red-500"></div>
-                    <div id="left-arm" class="hangman-part absolute top-24 left-1/2 transform -translate-x-0 -translate-y-1/2 w-12 h-1 bg-red-500 origin-right rotate-5"></div>
-                    <div id="right-arm" class="hangman-part absolute top-24 left-1/2 transform -translate-x-10 -translate-y-1/2 w-12 h-1 bg-red-500 origin-left -rotate-5"></div>
-                    <div id="left-leg" class="hangman-part absolute top-40 left-1/2 transform -translate-x-4 -translate-y-1/2 w-12 h-1 bg-red-500 origin-right rotate-45"></div>
-                    <div id="right-leg" class="hangman-part absolute top-40 left-1/2 transform -translate-x-8 -translate-y-1/2 w-12 h-1 bg-red-500 origin-left -rotate-45"></div>
-                    
+                    <div id="head" class="hangman-part hp-head"></div>
+                    <div id="body" class="hangman-part hp-body"></div>
+                    <div id="left-arm" class="hangman-part hp-arm hp-arm-left"></div>
+                    <div id="right-arm" class="hangman-part hp-arm hp-arm-right"></div>
+                    <div id="left-leg" class="hangman-part hp-leg hp-leg-left"></div>
+                    <div id="right-leg" class="hangman-part hp-leg hp-leg-right"></div>
+
                     <!-- Smiley face when won -->
-                    <div id="win-face" class="absolute hidden top-8 left-1/2 transform -translate-x-1/2 w-12 h-12 rounded-full border-4 border-green-500">
-                        <div class="absolute top-2 left-3 w-2 h-2 rounded-full bg-green-500"></div>
-                        <div class="absolute top-2 right-3 w-2 h-2 rounded-full bg-green-500"></div>
-                        <div class="absolute bottom-2 left-1/2 transform -translate-x-1/2 w-6 h-2 rounded-full border-b-4 border-green-500"></div>
+                    <div id="win-face" class="face face-win hidden">
+                        <div class="eye eye-l"></div>
+                        <div class="eye eye-r"></div>
+                        <div class="mouth"></div>
                     </div>
-                    
+
                     <!-- Sad face when lost -->
-                    <div id="lose-face" class="absolute hidden top-8 left-1/2 transform -translate-x-1/2 w-12 h-12 rounded-full border-4 border-red-500">
-                        <div class="absolute top-2 left-3 w-2 h-2 rounded-full bg-red-500"></div>
-                        <div class="absolute top-2 right-3 w-2 h-2 rounded-full bg-red-500"></div>
-                        <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-6 h-2 rounded-full border-t-4 border-red-500"></div>
+                    <div id="lose-face" class="face face-lose hidden">
+                        <div class="eye eye-l"></div>
+                        <div class="eye eye-r"></div>
+                        <div class="mouth"></div>
                     </div>
                 </div>
             </div>
 
             <!-- Game Controls -->
-            <div class="w-full lg:w-1/2">
+            <div class="controls">
                 <!-- Category Selector -->
-                <div class="mb-6">
-                    <h2 class="text-xl font-semibold text-purple-600 mb-3">Choose a category:</h2>
-                    <div class="flex flex-wrap gap-2">
-                        <button data-category="animals" class="category-btn px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-white rounded-full shadow-md transition">
-                            <i class="fas fa-paw mr-2"></i><span class="category-label" data-label="animals">Animals</span>
+                <div class="card">
+                    <h2 class="section-title"><i class="fas fa-paw"></i> Choose a category</h2>
+                    <div class="categories">
+                        <button data-category="animals" class="category-btn cat-animals">
+                            <i class="fas fa-paw"></i><span class="category-label" data-label="animals">Animals</span>
                         </button>
-                        <button data-category="colors" class="category-btn px-4 py-2 bg-red-400 hover:bg-red-500 text-white rounded-full shadow-md transition">
-                            <i class="fas fa-palette mr-2"></i><span class="category-label" data-label="colors">Colors</span>
+                        <button data-category="colors" class="category-btn cat-colors">
+                            <i class="fas fa-palette"></i><span class="category-label" data-label="colors">Colors</span>
                         </button>
-                        <button data-category="numbers" class="category-btn px-4 py-2 bg-blue-400 hover:bg-blue-500 text-white rounded-full shadow-md transition">
-                            <i class="fas fa-sort-numeric-up mr-2"></i><span class="category-label" data-label="numbers">Numbers</span>
+                        <button data-category="numbers" class="category-btn cat-numbers">
+                            <i class="fas fa-sort-numeric-up"></i><span class="category-label" data-label="numbers">Numbers</span>
                         </button>
-                        <button data-category="fruits" class="category-btn px-4 py-2 bg-green-400 hover:bg-green-500 text-white rounded-full shadow-md transition">
-                            <i class="fas fa-apple-alt mr-2"></i><span class="category-label" data-label="fruits">Fruits</span>
+                        <button data-category="fruits" class="category-btn cat-fruits">
+                            <i class="fas fa-apple-alt"></i><span class="category-label" data-label="fruits">Fruits</span>
                         </button>
-                        <button data-category="shapes" class="category-btn px-4 py-2 bg-purple-400 hover:bg-purple-500 text-white rounded-full shadow-md transition">
-                            <i class="fas fa-shapes mr-2"></i><span class="category-label" data-label="shapes">Shapes</span>
+                        <button data-category="shapes" class="category-btn cat-shapes">
+                            <i class="fas fa-shapes"></i><span class="category-label" data-label="shapes">Shapes</span>
                         </button>
-                        <button data-category="sports" class="category-btn px-4 py-2 bg-teal-400 hover:bg-teal-500 text-white rounded-full shadow-md transition">
-                            <i class="fas fa-football-ball mr-2"></i><span class="category-label" data-label="sports">Sports</span>
+                        <button data-category="sports" class="category-btn cat-sports">
+                            <i class="fas fa-football-ball"></i><span class="category-label" data-label="sports">Sports</span>
                         </button>
-                        <button data-category="countries" class="category-btn px-4 py-2 bg-orange-400 hover:bg-orange-500 text-white rounded-full shadow-md transition">
-                            <i class="fas fa-globe mr-2"></i><span class="category-label" data-label="countries">Countries</span>
+                        <button data-category="countries" class="category-btn cat-countries">
+                            <i class="fas fa-globe"></i><span class="category-label" data-label="countries">Countries</span>
                         </button>
-                        <button data-category="body" class="category-btn px-4 py-2 bg-pink-400 hover:bg-pink-500 text-white rounded-full shadow-md transition">
-                            <i class="fas fa-user mr-2"></i><span class="category-label" data-label="body">Body</span>
+                        <button data-category="body" class="category-btn cat-body">
+                            <i class="fas fa-user"></i><span class="category-label" data-label="body">Body</span>
                         </button>
                     </div>
                 </div>
 
                 <!-- Word Display -->
-                <div class="mb-8">
-                    <div id="word-display" class="flex justify-center gap-2 flex-wrap mb-4"></div>
-                    <div id="category-display" class="text-center text-lg font-medium text-gray-600"></div>
+                <div class="card">
+                    <div id="word-display" class="word-display"></div>
+                    <div id="category-display" class="category-display"></div>
                 </div>
 
                 <!-- Keyboard -->
-                <div class="mb-6">
-                    <h2 class="text-xl font-semibold text-purple-600 mb-3">Guess a letter:</h2>
-                    <div id="keyboard" class="flex flex-wrap justify-center gap-2"></div>
+                <div class="card">
+                    <h2 class="section-title"><i class="fas fa-keyboard"></i> Guess a letter</h2>
+                    <div id="keyboard" class="keyboard"></div>
                 </div>
 
                 <!-- Game Status -->
-                <div id="game-status" class="text-center text-xl font-bold mb-4"></div>
+                <div id="game-status" class="game-status"></div>
 
                 <!-- Controls -->
-                <div class="flex justify-center gap-4">
-                    <button id="new-game-btn" class="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg shadow-lg transition transform hover:scale-105">
-                        <i class="fas fa-redo mr-2"></i>New Game
+                <div class="actions">
+                    <button id="new-game-btn" class="btn btn-primary">
+                        <i class="fas fa-redo"></i>New Game
                     </button>
-                    <button id="hint-btn" class="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-lg transition transform hover:scale-105">
-                        <i class="fas fa-lightbulb mr-2"></i>Hint
+                    <button id="hint-btn" class="btn btn-hint">
+                        <i class="fas fa-lightbulb"></i>Hint
                     </button>
                 </div>
             </div>
-        </div>
+        </section>
 
         <!-- Instructions -->
-        <div class="mt-12 bg-white rounded-lg shadow-lg p-6 max-w-3xl mx-auto">
-            <h2 class="text-2xl font-bold text-purple-600 mb-4">How to Play</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="flex items-start">
-                    <div class="bg-yellow-100 rounded-full p-3 mr-3">
-                        <i class="fas fa-paw text-yellow-500 text-xl"></i>
-                    </div>
+        <section class="instructions card">
+            <h2 class="section-title"><i class="fas fa-question-circle"></i> How to Play</h2>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-icon icon-yellow"><i class="fas fa-paw"></i></div>
                     <div>
-                        <h3 class="font-semibold text-lg">1. Choose a Category</h3>
-                        <p class="text-gray-600">Pick from animals, colors, numbers, fruits or shapes.</p>
+                        <h3>1. Choose a Category</h3>
+                        <p>Pick from animals, colors, numbers, fruits or shapes.</p>
                     </div>
                 </div>
-                <div class="flex items-start">
-                    <div class="bg-blue-100 rounded-full p-3 mr-3">
-                        <i class="fas fa-keyboard text-blue-500 text-xl"></i>
-                    </div>
+                <div class="step">
+                    <div class="step-icon icon-blue"><i class="fas fa-keyboard"></i></div>
                     <div>
-                        <h3 class="font-semibold text-lg">2. Guess Letters</h3>
-                        <p class="text-gray-600">Click on letters to guess the hidden word.</p>
+                        <h3>2. Guess Letters</h3>
+                        <p>Click on letters to guess the hidden word.</p>
                     </div>
                 </div>
-                <div class="flex items-start">
-                    <div class="bg-green-100 rounded-full p-3 mr-3">
-                        <i class="fas fa-lightbulb text-green-500 text-xl"></i>
-                    </div>
+                <div class="step">
+                    <div class="step-icon icon-green"><i class="fas fa-lightbulb"></i></div>
                     <div>
-                        <h3 class="font-semibold text-lg">3. Use Hints</h3>
-                        <p class="text-gray-600">Stuck? Get a hint to reveal one letter.</p>
+                        <h3>3. Use Hints</h3>
+                        <p>Stuck? Get a hint to reveal one letter.</p>
                     </div>
                 </div>
-                <div class="flex items-start">
-                    <div class="bg-red-100 rounded-full p-3 mr-3">
-                        <i class="fas fa-trophy text-red-500 text-xl"></i>
-                    </div>
+                <div class="step">
+                    <div class="step-icon icon-red"><i class="fas fa-trophy"></i></div>
                     <div>
-                        <h3 class="font-semibold text-lg">4. Win the Game</h3>
-                        <p class="text-gray-600">Guess all letters before the hangman is complete!</p>
+                        <h3>4. Win the Game</h3>
+                        <p>Guess all letters before the hangman is complete!</p>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
+        </section>
+    </main>
 
-    <script>
-        // ============================================
-        // CONSTANTS
-        // ============================================
-        const MAX_WRONG_GUESSES = 6;
-        const CONFETTI_COUNT = 30;
-        const CONFETTI_DURATION_MIN = 1000;
-        const CONFETTI_DURATION_MAX = 3000;
-        const HINT_TOAST_DURATION = 1000;
-        const GAME_START_DELAY = 500;
-        
-        const CONFETTI_COLORS = [
-            '#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3',
-            '#03a9f4', '#00bcd4', '#009688', '#4CAF50', '#8BC34A', '#CDDC39',
-            '#FFEB3B', '#FFC107', '#FF9800', '#FF5722'
-        ];
-        
-        const VOWELS = ['A', 'E', 'I', 'O', 'U'];
-        const CONSONANTS = [
-            'B', 'C', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'M',
-            'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'X', 'Y', 'Z'
-        ];
-        
-        // Game data - words organized by category
-        const wordCategories = {
-            animals: [
-                "CAT", "DOG", "COW", "PIG", "BAT", "ANT", "BEE", "OWL", "FOX", "CHICKEN",
-                "LION", "TIGER", "HORSE", "MOUSE", "SHEEP", "GOAT", "BEAR", "WOLF", "FROG", "DUCK",
-                "RABBIT", "SNAKE", "FISH", "LIZARD", "PANDA", "ZEBRA", "KANGAROO", "PIGEON", "PENGUIN", "TURTLE"
-            ],
-            colors: [
-                "RED", "BLUE", "YELLOW",
-                "GREEN", "ORANGE", "PURPLE",
-                "WHITE", "BLACK", "GREY"
-            ],
-            numbers: [
-                "ONE", "TWO", "TEN", "SIX", "FIVE", "FOUR", "NINE", "ZERO", "EIGHT", "THREE", "SEVEN",
-                "ELEVEN", "TWELVE", "THIRTEEN", "FOURTEEN", "FIFTEEN", "SIXTEEN", "SEVENTEEN", "EIGHTEEN", "NINETEEN", "TWENTY"
-            ],
-            fruits: [
-                "APPLE", "PEAR", "KIWI", "MANGO", "GRAPE", "LEMON", "BANANA", "ORANGE", "PEACH", "MELON",
-                "PLUM", "CHERRY", "PINEAPPLE", "PAPAYA", "GUAVA", "APRICOT", "FIG", "COCONUT", "LYCHEE", "WATERMELON"
-            ],
-            shapes: [
-                "CIRCLE", "SQUARE", "STAR", "HEART", "OVAL", "ELLIPSE", "PENTAGON", "HEXAGON", "OCTAGON", "TRIANGLE", "DIAMOND", "CROSS", "ARC", "LINE", "RECTANGLE"
-            ],
-            countries: [
-                "CANADA", "BRAZIL", "FRANCE", "JAPAN", "INDIA", "EGYPT", "SPAIN", "CHINA", "ITALY", "KENYA",
-                "GERMANY", "AUSTRALIA", "MEXICO", "ARGENTINA", "RUSSIA", "TURKEY", "THAILAND", "NIGERIA", "NORWAY", "GREECE"
-            ],
-            sports: [
-                "SOCCER", "BASKETBALL", "BASEBALL", "TENNIS", "GOLF", "CRICKET", "RUGBY", "HOCKEY", "SWIMMING", "CYCLING",
-                "BOXING", "SKIING", "SKATEBOARDING", "SURFING", "VOLLEYBALL", "BADMINTON", "WRESTLING", "FENCING", "ROWING", "HANDBALL"
-            ],
-            body: [
-                "HEAD", "EYES", "EARS", "NOSE", "MOUTH", "LIPS", "TOOTH", "TEETH",
-                "TONGUE", "NECK", "SHOULDER", "ARMS", "ELBOW", "HANDS", "FINGERS", "THUMB", "CHEST",
-                "BACK", "STOMACH", "HIP", "LEGS", "KNEE", "FOOT", "FEET", "TOES"
-            ]
-        };
-
-        // ============================================
-        // GAME STATE
-        // ============================================
-        const gameState = {
-            currentWord: "",
-            guessedLetters: [],
-            wrongGuesses: 0,
-            gameActive: false,
-            currentCategory: "",
-            hintUsed: false
-        };
-
-        // ============================================
-        // DOM ELEMENTS (cached for performance)
-        // ============================================
-        const elements = {
-            wordDisplay: document.getElementById('word-display'),
-            categoryDisplay: document.getElementById('category-display'),
-            keyboard: document.getElementById('keyboard'),
-            gameStatus: document.getElementById('game-status'),
-            newGameBtn: document.getElementById('new-game-btn'),
-            hintBtn: document.getElementById('hint-btn'),
-            winFace: document.getElementById('win-face'),
-            loseFace: document.getElementById('lose-face'),
-            subtitle: document.getElementById('subtitle')
-        };
-        
-        // Hangman parts in reveal order
-        const HANGMAN_PART_ORDER = ['head', 'body', 'left-arm', 'right-arm', 'left-leg', 'right-leg'];
-        const hangmanParts = HANGMAN_PART_ORDER.map(id => document.getElementById(id));
-
-        // ============================================
-        // INITIALIZATION
-        // ============================================
-        
-        /**
-         * Creates the virtual keyboard with vowels and consonants
-         */
-        function createKeyboard() {
-            elements.keyboard.innerHTML = '';
-            
-            // Create vowels row
-            const vowelsRow = createKeyboardRow(VOWELS, 'mb-2');
-            elements.keyboard.appendChild(vowelsRow);
-            
-            // Create consonants row
-            const consonantsRow = createKeyboardRow(CONSONANTS, '');
-            elements.keyboard.appendChild(consonantsRow);
-        }
-        
-        /**
-         * Creates a row of keyboard keys
-         * @param {string[]} letters - Array of letters to create keys for
-         * @param {string} extraClasses - Additional CSS classes
-         * @returns {HTMLElement} - Container div with keys
-         */
-        function createKeyboardRow(letters, extraClasses) {
-            const row = document.createElement('div');
-            row.className = `flex flex-row flex-wrap justify-center gap-2 ${extraClasses}`;
-            
-            letters.forEach(letter => {
-                const key = createKeyboardKey(letter);
-                row.appendChild(key);
-            });
-            
-            return row;
-        }
-        
-        /**
-         * Creates a single keyboard key button
-         * @param {string} letter - The letter for this key
-         * @returns {HTMLElement} - Button element
-         */
-        function createKeyboardKey(letter) {
-            const key = document.createElement('button');
-            key.textContent = letter;
-            key.className = 'keyboard-key px-4 py-2 bg-white hover:bg-purple-100 text-purple-600 font-bold rounded-lg shadow-md';
-            key.dataset.letter = letter;
-            key.disabled = false;
-            key.addEventListener('click', () => handleGuess(letter));
-            return key;
-        }
-
-        // ============================================
-        // GAME LOGIC
-        // ============================================
-        
-        /**
-         * Starts a new game with the specified category
-         * @param {string} category - The word category to use
-         */
-        function startNewGame(category) {
-            // Validate category
-            if (!wordCategories[category]) {
-                console.error(`Invalid category: ${category}. Defaulting to 'animals'.`);
-                category = 'animals';
-            }
-            
-            // Reset game state
-            gameState.guessedLetters = [];
-            gameState.wrongGuesses = 0;
-            gameState.gameActive = true;
-            gameState.currentCategory = category;
-            gameState.hintUsed = false;
-            
-            // Select a random word from the category
-            const words = wordCategories[category];
-            gameState.currentWord = words[Math.floor(Math.random() * words.length)];
-            
-            // Update UI
-            updateWordDisplay();
-            updateKeyboard();
-            resetHangman();
-            updateGameStatus();
-            
-            // Show category with word count
-            elements.categoryDisplay.textContent = `Category: ${capitalize(category)} (${words.length} words)`;
-            
-            // Reset hint button
-            elements.hintBtn.disabled = true;
-            
-            // Show message
-            setGameStatus("Guess the word!", "text-purple-600");
-        }
-
-        /**
-         * Updates the word display showing guessed and hidden letters
-         */
-        function updateWordDisplay() {
-            elements.wordDisplay.innerHTML = '';
-            let allLettersFound = true;
-            
-            for (const letter of gameState.currentWord) {
-                const letterBox = createLetterBox(letter, gameState.guessedLetters.includes(letter));
-                elements.wordDisplay.appendChild(letterBox);
-                
-                if (!gameState.guessedLetters.includes(letter)) {
-                    allLettersFound = false;
-                }
-            }
-            
-            // Check if player won (only if game is still active)
-            if (allLettersFound && gameState.gameActive) {
-                endGame(true);
-            }
-        }
-        
-        /**
-         * Creates a letter box element
-         * @param {string} letter - The letter to display
-         * @param {boolean} isGuessed - Whether the letter has been guessed
-         * @returns {HTMLElement} - Div element for the letter
-         */
-        function createLetterBox(letter, isGuessed) {
-            const letterBox = document.createElement('div');
-            
-            if (isGuessed) {
-                letterBox.textContent = letter;
-                letterBox.className = 'letter-box found w-10 h-12 flex items-center justify-center text-3xl font-bold text-purple-600 bg-white rounded-lg shadow-md';
-            } else {
-                letterBox.className = 'letter-box w-10 h-12 flex items-center justify-center text-3xl font-bold text-transparent bg-gray-200 rounded-lg shadow-md';
-                letterBox.textContent = '_';
-            }
-            
-            return letterBox;
-        }
-
-        /**
-         * Updates keyboard key styles based on guess status
-         */
-        function updateKeyboard() {
-            const keys = elements.keyboard.querySelectorAll('.keyboard-key');
-            keys.forEach(key => {
-                const letter = key.dataset.letter;
-                const keyClass = getKeyClass(letter);
-                key.className = keyClass;
-                key.disabled = gameState.guessedLetters.includes(letter);
-            });
-        }
-        
-        /**
-         * Gets the appropriate CSS class for a keyboard key
-         * @param {string} letter - The letter to check
-         * @returns {string} - CSS class string
-         */
-        function getKeyClass(letter) {
-            const baseClass = 'keyboard-key px-4 py-2 font-bold rounded-lg shadow-md';
-            
-            if (!gameState.guessedLetters.includes(letter)) {
-                return `${baseClass} bg-white hover:bg-purple-100 text-purple-600`;
-            }
-            
-            if (gameState.currentWord.includes(letter)) {
-                return `${baseClass} used bg-green-100 text-green-600`;
-            }
-            
-            return `${baseClass} used bg-red-100 text-red-600`;
-        }
-
-        /**
-         * Handles a letter guess from the user
-         * @param {string} letter - The guessed letter
-         */
-        function handleGuess(letter) {
-            if (!gameState.gameActive || gameState.guessedLetters.includes(letter)) {
-                return;
-            }
-            
-            gameState.guessedLetters.push(letter);
-            
-            if (!gameState.currentWord.includes(letter)) {
-                gameState.wrongGuesses++;
-                updateHangman();
-                
-                // Enable hint after first wrong guess
-                if (gameState.wrongGuesses === 1) {
-                    elements.hintBtn.disabled = false;
-                }
-            }
-            
-            updateWordDisplay();
-            updateKeyboard();
-            updateGameStatus();
-            
-            // Check if player lost
-            if (gameState.wrongGuesses >= MAX_WRONG_GUESSES) {
-                endGame(false);
-            }
-        }
-
-        /**
-         * Reveals the next hangman body part based on wrong guesses
-         */
-        function updateHangman() {
-            const partIndex = gameState.wrongGuesses - 1;
-            if (partIndex >= 0 && partIndex < hangmanParts.length && hangmanParts[partIndex]) {
-                hangmanParts[partIndex].classList.add('show');
-            }
-        }
-
-        /**
-         * Resets the hangman drawing to initial state
-         */
-        function resetHangman() {
-            hangmanParts.forEach(part => part?.classList.remove('show'));
-            elements.winFace?.classList.add('hidden');
-            elements.loseFace?.classList.add('hidden');
-        }
-
-        /**
-         * Updates the game status message
-         */
-        function updateGameStatus() {
-            if (!gameState.gameActive) return;
-            
-            const remainingGuesses = MAX_WRONG_GUESSES - gameState.wrongGuesses;
-            if (remainingGuesses > 0) {
-                setGameStatus(`Wrong guesses left: ${remainingGuesses}`, "text-purple-600");
-            }
-        }
-        
-        /**
-         * Sets the game status message with styling
-         * @param {string} message - The status message
-         * @param {string} colorClass - Tailwind color class
-         */
-        function setGameStatus(message, colorClass) {
-            elements.gameStatus.textContent = message;
-            elements.gameStatus.className = `text-center text-xl font-bold mb-4 ${colorClass}`;
-        }
-
-        /**
-         * Ends the game with win or loss state
-         * @param {boolean} win - Whether the player won
-         */
-        function endGame(win) {
-            gameState.gameActive = false;
-            
-            if (win) {
-                handleWin();
-            } else {
-                handleLoss();
-            }
-        }
-        
-        /**
-         * Handles win state - shows celebration
-         */
-        function handleWin() {
-            setGameStatus("You won! Great job!", "text-green-600 bounce");
-            elements.winFace?.classList.remove('hidden');
-            
-            // Confetti particles array to manage animation lifecycle
-        let confettiParticles = [];
-
-        /**
-         * Creates a falling confetti particle
-         */
-        function createConfetti() {
-            // Create a particle object with its required animation properties
-            const particle = {
-                element: document.createElement('div'),
-                color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
-                duration: CONFETTI_DURATION_MIN + Math.random() * (CONFETTI_DURATION_MAX - CONFETTI_DURATION_MIN) + 'ms'
-            };
-
-            particle.element.className = 'confetti fade-in';
-            particle.element.style.backgroundColor = particle.color;
-            particle.element.style.left = `${Math.random() * 100}%`;
-            particle.element.style.animation = `${particle.duration} forwards`;
-
-            document.body.appendChild(particle.element);
-            confettiParticles.push(particle);
-
-            // Clean up after animation
-            setTimeout(() => {
-                particle.element.remove();
-                confettiParticles = confettiParticles.filter(p => p !== particle);
-            }, parseInt(particle.duration));
-        } effect
-            for (let i = 0; i < CONFETTI_COUNT; i++) {
-                setTimeout(createConfetti, i * 100);
-            }
-        }
-        
-        /**
-         * Handles loss state - reveals word
-         */
-        function handleLoss() {
-            setGameStatus(`Game over! The word was: ${gameState.currentWord}`, "text-red-600");
-            elements.loseFace?.classList.remove('hidden');
-            
-            // Reveal all letters
-            revealRemainingLetters();
-            updateWordDisplay();
-        }
-        
-        /**
-         * Reveals all unguessed letters in the word
-         */
-        function revealRemainingLetters() {
-            for (const letter of gameState.currentWord) {
-                if (!gameState.guessedLetters.includes(letter)) {
-                    gameState.guessedLetters.push(letter);
-                }
-            }
-        }
-
-        /**
-         * Creates a falling confetti particle
-         */
-        function createConfetti() {
-            const confetti = document.createElement('div');
-            confetti.className = 'confetti fade-in';
-            confetti.style.backgroundColor = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
-            confetti.style.left = `${Math.random() * 100}%`;
-            confetti.style.animation = `fall ${CONFETTI_DURATION_MIN + Math.random() * (CONFETTI_DURATION_MAX - CONFETTI_DURATION_MIN)}ms cubic-bezier(0.1, 0.8, 0.3, 1) forwards`;
-            
-            document.body.appendChild(confetti);
-            
-            // Clean up after animation
-            setTimeout(() => confetti.remove(), CONFETTI_DURATION_MAX);
-        }
-
-        /**
-         * Provides a hint by revealing a random unguessed letter
-         */
-        function giveHint() {
-            if (!gameState.gameActive || gameState.wrongGuesses === 0 || gameState.hintUsed) {
-                return;
-            }
-            
-            const unguessedLetters = getUnguessedLetters();
-            
-            if (unguessedLetters.length > 0) {
-                const hintLetter = unguessedLetters[Math.floor(Math.random() * unguessedLetters.length)];
-                gameState.guessedLetters.push(hintLetter);
-                gameState.hintUsed = true;
-                
-                updateWordDisplay();
-                updateKeyboard();
-                showHintToast(hintLetter);
-                
-                // Disable hint button after use
-                elements.hintBtn.disabled = true;
-            }
-        }
-        
-        /**
-         * Gets all unique letters in the word that haven't been guessed
-         * @returns {string[]} - Array of unguessed letters
-         */
-        function getUnguessedLetters() {
-            const unguessedLetters = [];
-            for (const letter of gameState.currentWord) {
-                if (!gameState.guessedLetters.includes(letter) && !unguessedLetters.includes(letter)) {
-                    unguessedLetters.push(letter);
-                }
-            }
-            return unguessedLetters;
-        }
-        
-        /**
-         * Shows a toast notification with the hint letter
-         * @param {string} letter - The hinted letter
-         */
-        function showHintToast(letter) {
-            const toast = document.createElement('div');
-            toast.className = 'hint-toast fade-in';
-            toast.textContent = `Hint: ${letter}`;
-            toast.style.top = '50%';
-            toast.style.left = '50%';
-            toast.style.transform = 'translate(-50%, -50%)';
-            
-            document.body.appendChild(toast);
-            
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translate(-50%, -100%)';
-                setTimeout(() => toast.remove(), 500);
-            }, HINT_TOAST_DURATION);
-        }
-        
-        /**
-         * Capitalizes the first letter of a string
-         * @param {string} str - String to capitalize
-         * @returns {string} - Capitalized string
-         */
-        function capitalize(str) {
-            return str.charAt(0).toUpperCase() + str.slice(1);
-        }
-
-        // ============================================
-        // EVENT LISTENERS
-        // ============================================
-        
-        elements.newGameBtn.addEventListener('click', () => {
-            const category = gameState.currentCategory || 'animals';
-            startNewGame(category);
-        });
-        
-        elements.hintBtn.addEventListener('click', giveHint);
-        
-        // Category buttons
-        document.querySelectorAll('.category-btn').forEach(button => {
-            button.addEventListener('click', () => {
-                startNewGame(button.dataset.category);
-            });
-        });
-
-        // ============================================
-        // INITIALIZATION
-        // ============================================
-        
-        /**
-         * Initializes the game UI and starts the first game
-         */
-        function initGame() {
-            createKeyboard();
-            updateSubtitle();
-            updateCategoryLabels();
-            
-            // Start with animals by default
-            setTimeout(() => {
-                startNewGame('animals');
-            }, GAME_START_DELAY);
-        }
-        
-        /**
-         * Updates the subtitle with total word count
-         */
-        function updateSubtitle() {
-            const totalWords = Object.values(wordCategories).reduce((sum, arr) => sum + arr.length, 0);
-            elements.subtitle.textContent = `Learn ${totalWords} English words while having fun!`;
-        }
-        
-        /**
-         * Updates category button labels with word counts
-         */
-        function updateCategoryLabels() {
-            document.querySelectorAll('.category-label').forEach(label => {
-                const category = label.getAttribute('data-label');
-                if (wordCategories[category]) {
-                    const count = wordCategories[category].length;
-                    label.textContent = `${capitalize(category)} (${count})`;
-                }
-            });
-        }
-        
-        // Start the game
-        initGame();
-    </script>
+    <script src="script.js"></script>
 </body>
 </html>
